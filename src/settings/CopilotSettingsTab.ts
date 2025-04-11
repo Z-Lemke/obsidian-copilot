@@ -1,9 +1,10 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, TextComponent } from 'obsidian';
 import MyPlugin from '../../main';
 import { CopilotSettings } from './SettingsModel';
 
 export default class CopilotSettingsTab extends PluginSettingTab {
 	plugin: MyPlugin;
+	private apiKeyInput: TextComponent;
 
 	constructor(app: App, plugin: MyPlugin) {
 		super(app, plugin);
@@ -24,5 +25,67 @@ export default class CopilotSettingsTab extends PluginSettingTab {
 					this.plugin.settings.enableTabCompletion = value;
 					await this.plugin.saveSettings();
 				}));
+
+		const llmSection = containerEl.createEl('div');
+		llmSection.createEl('h3', { text: 'LLM Configuration' });
+
+		new Setting(llmSection)
+			.setName('LLM Provider')
+			.setDesc('Select your LLM provider')
+			.addDropdown(dropdown => dropdown
+				.addOption('openai', 'OpenAI')
+				.setValue(this.plugin.settings.llmProvider?.provider || 'openai')
+				.onChange(async (value) => {
+					if (!this.plugin.settings.llmProvider) {
+						this.plugin.settings.llmProvider = {
+							provider: 'openai',
+							model: 'gpt-3.5-turbo',
+							apiKey: ''
+						};
+					}
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(llmSection)
+			.setName('Model')
+			.setDesc('Select the model to use')
+			.addDropdown(dropdown => dropdown
+				.addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo')
+				.addOption('gpt-4', 'GPT-4')
+				.setValue(this.plugin.settings.llmProvider?.model || 'gpt-3.5-turbo')
+				.onChange(async (value) => {
+					if (!this.plugin.settings.llmProvider) {
+						this.plugin.settings.llmProvider = {
+							provider: 'openai',
+							model: value,
+							apiKey: ''
+						};
+					} else {
+						this.plugin.settings.llmProvider.model = value;
+					}
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(llmSection)
+			.setName('API Key')
+			.setDesc('Enter your API key')
+			.addText(text => {
+				this.apiKeyInput = text;
+				text.setPlaceholder('Enter API key')
+					.setValue(this.plugin.settings.llmProvider?.apiKey || '')
+					.onChange(async (value) => {
+						if (!this.plugin.settings.llmProvider) {
+							this.plugin.settings.llmProvider = {
+								provider: 'openai',
+								model: 'gpt-3.5-turbo',
+								apiKey: value
+							};
+						} else {
+							this.plugin.settings.llmProvider.apiKey = value;
+						}
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.type = 'password';
+			});
 	}
 }

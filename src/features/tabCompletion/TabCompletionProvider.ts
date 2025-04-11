@@ -12,6 +12,8 @@ export default class TabCompletionProvider extends EditorSuggest<string> {
 	constructor(plugin: MyPlugin) {
 		super(plugin.app);
 		this.plugin = plugin;
+
+		document.addEventListener('keydown', this.handleTabKey.bind(this), true);
 	}
 
 	// Determine when to trigger the suggestion
@@ -51,7 +53,7 @@ export default class TabCompletionProvider extends EditorSuggest<string> {
 			if (evt.key === "Tab") {
 				this.applySuggestion(suggestion);
 				return;
-			} else if (evt.key === "Enter") {
+			} if (evt.key === "Enter") {
 				this.close();
 				
 				const enterEvent = new KeyboardEvent('keydown', {
@@ -63,9 +65,7 @@ export default class TabCompletionProvider extends EditorSuggest<string> {
 					cancelable: true
 				});
 				evt.target?.dispatchEvent(enterEvent);
-			} else {
-				this.close();
-			}
+			} 
 			return;
 		}
 
@@ -105,6 +105,19 @@ export default class TabCompletionProvider extends EditorSuggest<string> {
 	close(): void {
 		super.close();
 		this.suggestionsVisible = false;
+	}
+
+	private handleTabKey(evt: KeyboardEvent): void {
+		// Only handle Tab key when suggestions are visible
+		if (evt.key === 'Tab' && this.suggestionsVisible && this.currentSuggestions.length > 0) {
+			// Apply the first suggestion
+			this.selectSuggestion(this.currentSuggestions[0], evt);
+			// Prevent default tab behavior
+			evt.preventDefault();
+			evt.stopPropagation();
+			// Close suggestions
+			this.close();
+		}
 	}
 	
 }
