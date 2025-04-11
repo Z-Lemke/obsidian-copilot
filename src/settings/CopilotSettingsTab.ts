@@ -50,9 +50,9 @@ export default class CopilotSettingsTab extends PluginSettingTab {
 			.setName('Model')
 			.setDesc('Select the model to use')
 			.addDropdown(dropdown => dropdown
-				.addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo')
-				.addOption('gpt-4', 'GPT-4')
-				.setValue(this.plugin.settings.llmProvider?.model || 'gpt-3.5-turbo')
+				.addOption('gpt-4o-mini', 'GPT-4O Mini')
+				.addOption('gpt-4o', 'GPT-4O')
+				.setValue(this.plugin.settings.llmProvider?.model || 'gpt-4o-mini')
 				.onChange(async (value) => {
 					if (!this.plugin.settings.llmProvider) {
 						this.plugin.settings.llmProvider = {

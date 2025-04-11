@@ -1,9 +1,69 @@
 import { App, Editor, EditorPosition, TFile, EditorSuggestContext, EditorSuggestTriggerInfo } from 'obsidian';
 import TabCompletionProvider from '../TabCompletionProvider';
-import { TabCompletionWorkflow } from '../LLMWorkflow';
+import { TabSuggestionService } from '../TabSuggestionService';
+import { LLMProvider } from '../../../services/LLMProvider';
+import { RunnableSequence } from "@langchain/core/runnables";
 
 // Tell Jest to use the mock implementation for 'obsidian'
 jest.mock('obsidian');
+
+// Create a mock RunnableSequence
+const mockRunnableSequence = {
+    first: jest.fn(),
+    middle: jest.fn(),
+    last: jest.fn(),
+    omitSequenceTags: jest.fn(),
+    invoke: jest.fn(),
+    batch: jest.fn(),
+    stream: jest.fn(),
+    _lc_kwargs: {},
+    _lc_namespace: ['test'],
+    pipe: jest.fn(),
+    bind: jest.fn(),
+} as unknown as RunnableSequence;
+
+// Create a mock TabSuggestionService class
+class MockTabSuggestionService extends TabSuggestionService {
+    constructor() {
+        super();
+        this.chain = mockRunnableSequence;
+    }
+
+    async getSuggestions(text: string): Promise<string[]> {
+        return ['suggestion 1', 'suggestion 2', 'suggestion 3'];
+    }
+}
+
+// Create an error throwing mock service
+class ErrorMockTabSuggestionService extends TabSuggestionService {
+    constructor() {
+        super();
+        this.chain = mockRunnableSequence;
+    }
+
+    async getSuggestions(text: string): Promise<string[]> {
+        throw new Error('Service Error');
+    }
+}
+
+// Mock the TabSuggestionService module
+jest.mock('../TabSuggestionService', () => {
+    return {
+        TabSuggestionService: jest.fn().mockImplementation(() => new MockTabSuggestionService())
+    };
+});
+
+// Mock LLMProvider
+jest.mock('../../../services/LLMProvider', () => {
+    return {
+        LLMProvider: {
+            getInstance: jest.fn().mockReturnValue({
+                isConfigured: jest.fn().mockReturnValue(true),
+                getModel: jest.fn()
+            })
+        }
+    };
+});
 
 // Mock the plugin using the mocked App
 const mockPlugin = {
@@ -18,15 +78,6 @@ const mockPlugin = {
     },
     saveSettings: jest.fn()
 };
-
-// Mock TabCompletionWorkflow (only public methods)
-jest.mock('../LLMWorkflow', () => {
-    return {
-        TabCompletionWorkflow: jest.fn().mockImplementation(() => ({
-            getSuggestions: jest.fn().mockResolvedValue(['suggestion 1', 'suggestion 2', 'suggestion 3'])
-        }))
-    };
-});
 
 // Factory function for mock Editor instances
 const mockEditorInstance = (): Editor => ({
@@ -165,13 +216,6 @@ describe('TabCompletionProvider', () => {
             file: mockTFileInstance()
         };
 
-        // Since the implementation is now hardcoded, only test the expected hardcoded output
-        it('should return the hardcoded mock suggestions', async () => {
-            const suggestions = await provider.getSuggestions(context);
-            expect(suggestions).toEqual(['suggestion 1', 'suggestion 2', 'suggestion 3']);
-        });
-
-        /* // Original tests commented out as the implementation is currently hardcoded
         it('should return error message when LLM is not configured', async () => {
             const noLLMPlugin = {
                 ...mockPlugin,
@@ -183,23 +227,20 @@ describe('TabCompletionProvider', () => {
             expect(suggestions).toEqual(['Please configure LLM in settings']);
         });
 
-        it('should return suggestions from LLM when configured', async () => {
+        it('should return suggestions from service when configured', async () => {
             const suggestions = await provider.getSuggestions(context);
             expect(suggestions).toEqual(['suggestion 1', 'suggestion 2', 'suggestion 3']);
+            expect(provider['suggestionsVisible']).toBe(true);
         });
 
-        it('should handle LLM errors gracefully', async () => {
-            const mockWorkflowInstance = {
-                getSuggestions: jest.fn().mockRejectedValue(new Error('API Error'))
-            };
-            jest.mocked(TabCompletionWorkflow).mockImplementationOnce(() => mockWorkflowInstance as unknown as TabCompletionWorkflow);
+        it('should handle service errors gracefully', async () => {
+            // Mock the service to throw an error
+            jest.mocked(TabSuggestionService).mockImplementationOnce(() => new ErrorMockTabSuggestionService());
 
             provider = new TabCompletionProvider(mockPlugin as any);
-
             const suggestions = await provider.getSuggestions(context);
             expect(suggestions).toEqual(['Error getting suggestions']);
         });
-        */
     });
 
     describe('renderSuggestion', () => {
